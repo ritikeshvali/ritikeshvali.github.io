@@ -1,0 +1,149 @@
+html
+{
+  background-color: #222222;
+  font-family: sans-serif;
+}
+body
+{
+  margin: 0;
+  padding: 0;
+
+}
+header
+{
+
+}
+#nav-bar
+{
+  background: #222222;
+  margin: 0;
+  padding: 0;
+  position: fixed;
+  border-bottom-color: white;
+  border-bottom-width: 1px;
+  border-bottom-style: solid;
+  max-width: 100%;
+  height: 3vw;
+  width: 100%;
+  vertical-align: middle;
+  font-size: 25px;
+  font-family: sans-serif;
+  opacity: 0.9;
+}
+ul
+{
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+}
+li
+{
+  float:left;
+}
+li.right
+{
+  float: right;
+}
+a.nav
+{
+  padding: 7.5px;
+  color:  #efefef;                 /*Link Text color*/
+  vertical-align: middle;
+}
+a.nav:link
+{
+  text-decoration: none;
+  color: #efefef;
+}
+a.nav:hover                          /*On hover*/
+{
+  color: #296ddb;               /*Link Text Color*/
+}
+div.ritikesh_dp
+{
+  display: block;
+  max-height: 100vh;
+  background-color: #e6e9ef;
+  z-index: 0;
+}
+img.profile
+{
+  display: block;
+  margin: auto;
+  height: 15vw;
+  width: 15vw;
+  border-radius: 7.5vw;
+}
+div.middle
+{
+  margin: auto;
+  width: 50%;
+  font-size: 30px;
+  font-family: sans-serif;
+  color: #222222;
+  text-align: center;
+  display: block;
+}
+me
+{
+  font-size: 45px;
+  color: #5462ff;
+  font-weight: bold;
+}
+#about
+{
+  margin: auto;
+  height: 50vh;
+  display: inline-table;
+  max-width: 100%;
+  width: 100%;
+  background-color: #5462ff;
+  color: #e6e9ef;
+  font-size: 25px;
+}
+div.statement
+{
+  margin: auto;
+  display: table-cell;
+  text-align: center;
+  vertical-align: middle;
+}
+div.footer
+{
+  margin: 0;
+  padding-top: 50px;
+  max-width: 100%;
+  height:150px;
+  background-color: #e6e9ef;
+  text-align:center;
+  font-size:30px;
+  font-family: monospace;
+}
+a.social
+{
+  font-size:30px;
+  color: #555555;
+}
+a.social:link
+{
+  color: #555555;
+}
+a.fb:hover
+{
+  color: #3B5998;
+}a.insta:hover
+{
+  color: #E1306C;
+}a.git:hover
+{
+  color: #222222;
+}
+/*a.social:visited
+{
+  color: #111111;
+}*/
+p.credits
+{
+font-size: 15px;
+color:  #555555;
+}
