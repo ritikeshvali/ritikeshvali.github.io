@@ -2,5 +2,5 @@
 export const links = {
   github: "https://github.com/ritikeshvali",
   x: "https://x.com/ironrobot10",
-  linkedin: "https://linkedin.com/in/ritikeshvali",
+  linkedin: "https://www.linkedin.com/in/ritikesh-vali-evree1/",
 };
