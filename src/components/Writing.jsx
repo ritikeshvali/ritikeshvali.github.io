@@ -3,7 +3,7 @@ import { notes, substackUrl } from "../data/notes.js";
 export default function Writing() {
   return (
     <section id="writing" className="writing">
-      <div className="label">writing</div>
+      <div className="label">Writing</div>
       <p>
         A paper-reading notebook on inference, ML, RL, agents, retrieval, and
         systems, where I work out what I actually understood versus what I only
@@ -22,7 +22,7 @@ export default function Writing() {
       )}
 
       <div className="links">
-        <a href={substackUrl} target="_blank" rel="noopener">read on substack</a>
+        <a href={substackUrl} target="_blank" rel="noopener">Read on Substack</a>
       </div>
     </section>
   );

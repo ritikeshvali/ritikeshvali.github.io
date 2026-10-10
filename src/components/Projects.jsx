@@ -4,7 +4,7 @@ import { projects } from "../data/projects.js";
 export default function Projects() {
   return (
     <section id="projects">
-      <div className="label">projects</div>
+      <div className="label">Projects</div>
       {projects.map((p) => (
         <Project key={p.name} {...p} />
       ))}

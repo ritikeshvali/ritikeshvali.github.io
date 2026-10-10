@@ -5,8 +5,8 @@
 export const projects = [
   {
     name: "Tark",
-    meta: "C++17 · llama.cpp · from scratch",
-    oneliner: "An LLM inference serving system built on top of llama.cpp.",
+    meta: "C++17 · llama.cpp",
+    oneliner: "An LLM inference serving system for low compute.",
     problem:
       "Tark is an inference server on llama.cpp for low-compute setups: continuous batching, paged attention, prefix caching, speculative decoding, benchmarked against llama.cpp's own server. The scheduler is where it gets interesting. Once you interleave requests across a shared decode loop, serving is more a distributed-systems problem than a model one, which is the thread the Orca paper pulls on for ml.",
 
