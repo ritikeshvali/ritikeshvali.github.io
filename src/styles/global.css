@@ -234,6 +234,8 @@ section { margin-top: clamp(3.5rem, 10vw, 5rem); }
 .writing .notes li:last-child { border-bottom: 1px solid var(--hair); }
 .writing .note-date { font-family: var(--mono); font-size: 0.74rem; color: var(--faint); white-space: nowrap; }
 .writing .links { font-family: var(--mono); font-size: 0.8rem; }
+.writing .links a { margin-right: 1.25rem; }
+.writing .links a:last-child { margin-right: 0; }
 
 /* ---- meta footer ---- */
 .meta {

@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Concepts · Ritikesh Vali</title>
+<meta name="description" content="Short animated walkthroughs of ideas I'm studying, each built from the original paper.">
+<meta property="og:title" content="Concepts · Ritikesh Vali">
+<meta property="og:description" content="Short animated walkthroughs of ideas I'm studying, each built from the original paper.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://ritikeshvali.com/concepts/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>
+(function(){try{var t=localStorage.getItem("theme");if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t);}catch(e){}})();
+</script>
+<style>
+/* same tokens as the main site (src/styles/global.css) */
+:root{--paper:#f7f6f3;--ink:#1c1c1a;--muted:#6a6a66;--faint:#94938d;--hair:#e5e3dd;--accent:#3b48cc;
+  --sans:"Hanken Grotesk",ui-sans-serif,system-ui,sans-serif;--mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--paper:#151513;--ink:#e8e7e2;--muted:#9c9b94;--faint:#6f6e68;--hair:#2a2a27;--accent:#93a0ff}}
+:root[data-theme="dark"]{--paper:#151513;--ink:#e8e7e2;--muted:#9c9b94;--faint:#6f6e68;--hair:#2a2a27;--accent:#93a0ff}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-decoration:none;text-underline-offset:3px;text-decoration-thickness:1px}
+a:hover{text-decoration:underline}
+a:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
+.page{max-width:42rem;margin:0 auto;padding:clamp(2.75rem,8vw,5rem) clamp(1.25rem,5vw,2rem) 4rem}
+.back{font-family:var(--mono);font-size:.8rem;color:var(--muted)}
+.back:hover{color:var(--ink);text-decoration:none}
+h1{font-size:clamp(2.2rem,8vw,3.1rem);line-height:1.04;letter-spacing:-.03em;font-weight:700;margin:1.5rem 0 .6rem}
+.tag{font-size:1.02rem;color:var(--muted);max-width:30rem;line-height:1.45;margin:0}
+section{margin-top:clamp(3rem,9vw,4.5rem)}
+.label{font-family:var(--mono);font-size:.78rem;color:var(--faint);letter-spacing:.02em;margin-bottom:1.75rem}
+.project{padding:2rem 0;border-top:1px solid var(--hair);border-bottom:1px solid var(--hair)}
+.project+.project{border-top:0}
+.project-head{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;flex-wrap:wrap;margin-bottom:.5rem}
+.project-head h2{font-size:1.4rem;font-weight:600;letter-spacing:-.01em;margin:0}
+.project-meta{font-family:var(--mono);font-size:.74rem;color:var(--faint)}
+.oneliner{font-weight:500;margin:0 0 .75rem}
+.detail{color:var(--muted);font-size:.98rem;margin:0 0 1rem}
+.links{font-family:var(--mono);font-size:.8rem}
+@media (max-width:480px){body{font-size:16px}}
+@media (min-width:60rem){.page{max-width:43rem;margin-left:clamp(2rem,13vw,10rem);margin-right:auto}}
+</style>
+</head>
+<body>
+<div class="page">
+  <a class="back" href="/">&larr; ritikeshvali.com</a>
+  <h1>Concepts</h1>
+  <p class="tag">Short animated walkthroughs of ideas I&rsquo;m studying. Each one starts from the paper and builds the idea one part at a time.</p>
+
+  <section>
+    <div class="label">Reinforcement learning</div>
+    <div class="project">
+      <div class="project-head">
+        <h2>DQN</h2>
+        <div class="project-meta">Mnih et al., Nature 2015 &middot; 97 s</div>
+      </div>
+      <p class="oneliner">Deep Q-learning, rebuilt from the paper.</p>
+      <p class="detail">The agent and environment loop, the Q-network, the replay buffer, the target network and the loss, each shown with data moving through it. Ends with the full loop running next to Algorithm 1.</p>
+      <div class="links"><a href="dqn/">watch</a></div>
+    </div>
+  </section>
+</div>
+</body>
+</html>

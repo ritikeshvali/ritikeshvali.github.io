@@ -1,0 +1,574 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DQN Paper Reel · Ritikesh Vali</title>
+<meta name="description" content="A 97-second animated walkthrough of the DQN paper: Q-network, replay buffer, target network and loss, one part at a time.">
+<meta property="og:title" content="DQN Paper Reel">
+<meta property="og:description" content="The DQN paper rebuilt one part at a time: Q-network, replay buffer, target network, loss.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://ritikeshvali.com/concepts/dqn/">
+<meta name="theme-color" content="#0a0e18">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap">
+<style>
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
+.back{font-family:var(--font-mono);font-size:12.5px;color:var(--muted);text-decoration:none}
+.back:hover{color:var(--ink)}
+/* layout: one 9:16 film stage, transport controls under it, script below. single dark look on purpose (it is a video frame). */
+:root{
+  --bg:#0a0e18; --stage:#101624; --stage-2:#19213a; --screen:#090d16; --line:#2e3956;
+  --ink:#e9edf5; --muted:#8f9bb5;
+  --paper:#eef0f4; --paper-2:#dde1e9; --paper-ink:#1b2130; --paper-bar:#c2c7d2; --hl:#f6c744; --mark:#e0522e;
+  --online:#f0a63a; --offline:#4cc4dc; --target:#b59af2; --loss:#f2766b;
+  --font-display:"Source Serif 4", Georgia, "Times New Roman", serif;
+  --font-body:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono:"IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+html,body{background:var(--bg);color:var(--ink)}
+body{font-family:var(--font-body);font-size:15px;line-height:1.5;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:18px 32px}
+.wrap{max-width:460px;margin:0 auto;display:flex;flex-direction:column;gap:14px;align-items:stretch}
+header h1{font-family:var(--font-display);font-weight:700;font-size:22px;margin:0;text-wrap:balance}
+header p{margin:2px 0 0;color:var(--muted);font-size:13.5px}
+.stagebox{display:flex;justify-content:center}
+canvas{display:block;width:min(100%, max(250px, calc((100dvh - 150px) * 0.5625)));aspect-ratio:9/16;max-width:100%;
+  background:var(--stage);border-radius:14px;border:1px solid var(--line);cursor:pointer}
+.transport{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.transport input[type=range]{flex:1 1 110px;min-width:0;accent-color:var(--online)}
+.time{font-family:var(--font-mono);font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+button{font:inherit;color:var(--ink);background:transparent;border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer}
+button:hover{border-color:var(--muted)}
+button:focus-visible,input:focus-visible,summary:focus-visible,canvas:focus-visible{outline:2px solid var(--online);outline-offset:2px}
+#play{min-width:76px;background:var(--stage-2);font-weight:600}
+.scenes{display:flex;flex-wrap:wrap;gap:6px}
+.scenes button{font-size:12.5px;padding:4px 10px;color:var(--muted)}
+.scenes button[aria-current="true"]{color:var(--ink);background:var(--stage-2);border-color:var(--online)}
+details{border-top:1px solid var(--line);padding-top:10px}
+summary{cursor:pointer;color:var(--muted);font-size:13.5px}
+ol{margin:10px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:10px}
+ol b{font-family:var(--font-display);font-weight:600}
+ol span{display:block;color:var(--muted);font-size:13.5px;max-width:65ch}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <a class="back" href="../">&larr; Concepts</a>
+    <h1>DQN Paper Reel</h1>
+    <p>Mnih et al., Nature 2015, rebuilt one part at a time. Tap the frame to pause.</p>
+  </header>
+  <div class="stagebox"><canvas id="stage" tabindex="0" role="img" aria-label="Animated walkthrough of the DQN paper. The script is listed below."></canvas></div>
+  <div class="transport">
+    <button id="play" type="button">Pause</button>
+    <input id="seek" type="range" min="0" max="100" step="0.01" value="0" aria-label="Position in the reel">
+    <span class="time" id="time">0:00</span>
+    <button id="snd" type="button" aria-pressed="false">Sound off</button>
+  </div>
+  <div class="scenes" id="scenes" aria-label="Jump to a scene"></div>
+  <details>
+    <summary>Script, scene by scene</summary>
+    <ol id="script"></ol>
+  </details>
+</div>
+
+<script>
+(() => {
+const cv = document.getElementById('stage'), ctx = cv.getContext('2d');
+const W = 540, H = 960, OP = 2.3;
+const cs = getComputedStyle(document.documentElement);
+const C = {};
+['bg','stage','stage-2','screen','line','ink','muted','paper','paper-2','paper-ink','paper-bar','hl','mark','online','offline','target','loss']
+  .forEach(k => C[k.replace('-', '_')] = cs.getPropertyValue('--' + k).trim());
+const F = { d: '"Source Serif 4", Georgia, serif', b: '"IBM Plex Sans", system-ui, sans-serif', m: '"IBM Plex Mono", ui-monospace, Menlo, monospace' };
+
+/* ---------- helpers ---------- */
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const lerp = (a, b, k) => a + (b - a) * k;
+const ease = x => { x = clamp(x); return x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+const seg = (u, a, b) => clamp((u - a) / (b - a));
+const rnd = i => { const v = Math.sin(i * 127.1 + 311.7) * 43758.5453; return v - Math.floor(v); };
+const tri = v => { v = v - Math.floor(v); return 1 - Math.abs(v * 2 - 1); };
+function ca(hex, a) { const n = parseInt(hex.slice(1), 16); return 'rgba(' + (n >> 16) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')'; }
+function A(a, fn) { if (a <= 0.004) return; ctx.save(); ctx.globalAlpha *= clamp(a); fn(); ctx.restore(); }
+function rr(x, y, w, h, r) { ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h); }
+function T(s, x, y, o = {}) {
+  ctx.font = (o.w || 400) + ' ' + (o.s || 14) + 'px ' + (o.f || F.b);
+  ctx.fillStyle = o.c || C.ink; ctx.textAlign = o.a || 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillText(s, x, y);
+}
+function wrap(s, x, y, maxW, lh, o) {
+  ctx.font = (o.w || 400) + ' ' + (o.s || 14) + 'px ' + (o.f || F.b);
+  const words = s.split(' '); let ln = '';
+  for (const w of words) {
+    const t = ln ? ln + ' ' + w : w;
+    if (ctx.measureText(t).width > maxW && ln) { T(ln, x, y, o); y += lh; ln = w; } else ln = t;
+  }
+  if (ln) { T(ln, x, y, o); y += lh; }
+  return y;
+}
+function pat(p, k) {
+  let L = 0; for (let i = 1; i < p.length; i++) L += Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]);
+  let d = L * clamp(k);
+  for (let i = 1; i < p.length; i++) {
+    const s = Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]);
+    if (d <= s || i === p.length - 1) { const f = s ? clamp(d / s) : 0; return [lerp(p[i - 1][0], p[i][0], f), lerp(p[i - 1][1], p[i][1], f)]; }
+    d -= s;
+  }
+  return p[0];
+}
+function line(p, col, o = {}) {
+  ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = o.lw || 1.5; if (o.dash) ctx.setLineDash(o.dash);
+  ctx.beginPath(); ctx.moveTo(p[0][0], p[0][1]); for (let i = 1; i < p.length; i++) ctx.lineTo(p[i][0], p[i][1]); ctx.stroke();
+  ctx.setLineDash([]);
+  const [x2, y2] = p[p.length - 1], [x1, y1] = p[p.length - 2], an = Math.atan2(y2 - y1, x2 - x1);
+  ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - 9 * Math.cos(an - .42), y2 - 9 * Math.sin(an - .42)); ctx.lineTo(x2 - 9 * Math.cos(an + .42), y2 - 9 * Math.sin(an + .42));
+  ctx.closePath(); ctx.fill(); ctx.restore();
+}
+function dot(x, y, col, r = 6) {
+  ctx.fillStyle = ca(col, .25); ctx.beginPath(); ctx.arc(x, y, r + 5, 0, 7); ctx.fill();
+  ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+}
+function tok(p, k, col, label, side) {
+  if (k <= 0 || k >= 1) return;
+  const [x, y] = pat(p, ease(k)); dot(x, y, col);
+  if (label) T(label, side === 'l' ? x - 14 : x + 14, y + 4, { f: F.m, s: 11.5, c: col, w: 500, a: side === 'l' ? 'right' : 'left' });
+}
+function box(b, col, label, o = {}) {
+  rr(b[0], b[1], b[2], b[3], 10); ctx.fillStyle = o.fill || C.stage_2; ctx.fill();
+  ctx.lineWidth = 1.5; ctx.strokeStyle = col; if (o.dash) ctx.setLineDash(o.dash); ctx.stroke(); ctx.setLineDash([]);
+  if (label) T(label, b[0] + 2, b[1] - 8, { f: F.m, s: 11, c: col, w: 500 });
+}
+function flash(b, col, a) { A(a, () => { rr(b[0] - 3, b[1] - 3, b[2] + 6, b[3] + 6, 12); ctx.lineWidth = 3; ctx.strokeStyle = col; ctx.stroke(); }); }
+function net(x, y, w, h, col) {
+  const L = [3, 4, 3], pts = L.map((n, i) => Array.from({ length: n }, (_, j) => [x + w * (i / 2), y + h * ((j + .5) / n)]));
+  ctx.strokeStyle = ca(col, .28); ctx.lineWidth = 1;
+  for (let i = 0; i < 2; i++) for (const a of pts[i]) for (const b of pts[i + 1]) { ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); }
+  ctx.fillStyle = col; for (const l of pts) for (const a of l) { ctx.beginPath(); ctx.arc(a[0], a[1], 3.2, 0, 7); ctx.fill(); }
+}
+function game(x, y, w, h, u) {
+  rr(x, y, w, h, 6); ctx.fillStyle = C.screen; ctx.fill();
+  const bw = (w - 14) / 6, bh = h * .08, gone = Math.floor(u / 2.6) % 7, cols = [C.loss, C.online, C.offline];
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 6; c++) {
+    if (r === 2 && c < gone) continue;
+    ctx.fillStyle = ca(cols[r], .8); ctx.fillRect(x + 7 + c * bw + 1.5, y + 8 + r * (bh + 3), bw - 3, bh);
+  }
+  const bx = x + 12 + tri(u * .31) * (w - 24), by = y + h * .42 + tri(u * .47 + .3) * (h * .4);
+  ctx.fillStyle = C.ink; ctx.beginPath(); ctx.arc(bx, by, Math.max(2.2, w * .016), 0, 7); ctx.fill();
+  ctx.fillRect(bx - w * .09, y + h - 9, w * .18, 3.5);
+}
+
+/* ---------- the paper (redrawn page, text shown as bars except the parts we zoom into) ---------- */
+const ALGO = ['init memory D, weights θ, target θ⁻ ← θ', 'for each step t:', '  a ← ε-greedy over Q(s, · ; θ)', '  play a, observe r and s′',
+  '  store (s, a, r, s′) in D', '  sample a random minibatch from D', '  y ← r + γ maxₐ Q̂(s′, a ; θ⁻)', '  gradient step on (y − Q(s, a ; θ))²', '  every C steps: θ⁻ ← θ'];
+const REG = { loop: [24, 137, 168, 14], qnet: [24, 262, 168, 116], replay: [208, 152, 168, 14], target: [208, 218, 168, 14], loss: [206, 381, 172, 13], full: [204, 284, 176, 128] };
+function viewFor(reg, k) {
+  const s1 = reg ? Math.min(470 / reg[2], 400 / reg[3], 3.4) : 1;
+  const s = Math.exp(Math.log(s1) * k), cx = lerp(200, reg ? reg[0] + reg[2] / 2 : 200, k), cy = lerp(260, reg ? reg[1] + reg[3] / 2 : 260, k);
+  return { x: 270 - cx * s, y: 356 - cy * s, s };
+}
+function bars(x, y, w, n, seed) {
+  ctx.fillStyle = C.paper_bar;
+  for (let j = 0; j < n; j++) ctx.fillRect(x, y + j * 5, j === n - 1 ? w * (.35 + .4 * rnd(seed + j)) : w * (.9 + .1 * rnd(seed + j * 3)), 2.2);
+}
+function chip(r, s) { ctx.fillStyle = ca(C.hl, .6); ctx.fillRect(r[0], r[1], r[2], r[3]); T(s, r[0] + 3, r[1] + r[3] - 4.2, { f: F.d, s: 6.6, w: 600, c: C.paper_ink }); }
+function ring(r, a) { A(a, () => { ctx.strokeStyle = C.mark; ctx.lineWidth = 1.3; rr(r[0] - 3, r[1] - 3, r[2] + 6, r[3] + 6, 2.5); ctx.stroke(); }); }
+function paper(v, reg, ra, all) {
+  const ink = C.paper_ink;
+  ctx.save(); ctx.beginPath(); ctx.rect(0, 88, W, 538); ctx.clip();
+  ctx.translate(v.x, v.y); ctx.scale(v.s, v.s);
+  ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(4, 5, 400, 520);
+  ctx.fillStyle = C.paper; ctx.fillRect(0, 0, 400, 520);
+  T('LETTER', 24, 22, { f: F.d, w: 700, s: 7, c: ink }); T('Nature 518, 529–533 (2015)', 376, 22, { f: F.d, s: 5.6, c: ink, a: 'right' });
+  ctx.fillStyle = ink; ctx.fillRect(24, 27, 352, .6);
+  T('Human-level control through deep', 24, 50, { f: F.d, w: 700, s: 16.5, c: ink });
+  T('reinforcement learning', 24, 69, { f: F.d, w: 700, s: 16.5, c: ink });
+  T('Volodymyr Mnih, Koray Kavukcuoglu, David Silver, Andrei A. Rusu, Joel Veness,', 24, 84, { f: F.d, s: 6, c: ink });
+  T('Marc G. Bellemare, Alex Graves, Martin Riedmiller … Demis Hassabis', 24, 93, { f: F.d, s: 6, c: ink });
+  ctx.fillStyle = ink; ctx.fillRect(24, 102, 352, .4);
+  // left column
+  bars(24, 112, 168, 4, 1); chip(REG.loop, 'reinforcement learning: agent ↔ environment'); bars(24, 159, 168, 18, 2);
+  ctx.strokeStyle = ink; ctx.lineWidth = .5; ctx.strokeRect(24, 262, 168, 104);
+  for (let i = 0; i < 3; i++) { ctx.fillStyle = C.paper_2; ctx.fillRect(38 + i * 4, 290 + i * 4, 30, 30); ctx.strokeRect(38 + i * 4, 290 + i * 4, 30, 30); }
+  [[92, 46], [108, 36], [124, 26], [142, 40]].forEach(([x, h], i) => { ctx.fillStyle = i === 3 ? ca(C.target, .7) : ca(C.offline, .6); ctx.fillRect(x, 314 - h / 2, i === 3 ? 5 : 10, h); ctx.strokeRect(x, 314 - h / 2, i === 3 ? 5 : 10, h); });
+  [1.2, 2, .7, 1.5].forEach((q, i) => { ctx.fillStyle = ink; ctx.fillRect(158, 297 + i * 10, q * 10, 4); });
+  ctx.fillStyle = ink; ctx.fillRect(80, 313.7, 9, .6); ctx.fillRect(149, 313.7, 7, .6);
+  T('pixels', 38, 342, { f: F.d, s: 5, c: ink }); T('layers', 100, 348, { f: F.d, s: 5, c: ink }); T('Q per action', 150, 342, { f: F.d, s: 5, c: ink });
+  T('Figure 1 | The deep Q-network', 24, 376, { f: F.d, w: 600, s: 5.8, c: ink });
+  bars(24, 388, 168, 23, 3);
+  // right column
+  T('METHODS', 208, 117, { f: F.d, w: 700, s: 6.5, c: ink }); bars(208, 124, 168, 5, 4);
+  chip(REG.replay, 'experience replay: store, then sample at random'); bars(208, 173, 168, 8, 5);
+  chip(REG.target, 'target network Q̂: a periodically updated copy'); bars(208, 239, 168, 8, 6);
+  ctx.fillStyle = C.paper_2; ctx.fillRect(204, 284, 176, 128); ctx.strokeStyle = ink; ctx.lineWidth = .5; ctx.strokeRect(204, 284, 176, 128);
+  T('Algorithm 1 · deep Q-learning with experience replay', 209, 296, { f: F.d, w: 700, s: 5.6, c: ink });
+  ALGO.forEach((l, j) => T(l, 210, 309 + j * 11.6, { f: F.m, s: 5.3, c: ink }));
+  bars(208, 420, 168, 17, 7);
+  if (all) Object.keys(REG).forEach((k, i) => { if (k !== 'loss') ring(REG[k], ra * seg(all, i * .7, i * .7 + .5)); });
+  else if (reg) ring(reg, ra);
+  ctx.restore();
+}
+
+/* ---------- scene 1: the loop ---------- */
+function sLoop(u) {
+  const env = [150, 124, 240, 168], ag = [170, 444, 200, 104], PL = [[215, 292], [215, 444]], PR = [[325, 444], [325, 292]];
+  const n = Math.floor(u / 2.6), p = (u % 2.6) / 2.6;
+  box(env, C.ink, 'Environment (the game) · score ' + n); game(162, 136, 216, 144, u);
+  box(ag, C.ink, 'Agent'); net(215, 462, 110, 68, C.ink);
+  line(PL, C.online); line(PR, C.online);
+  T('state s', 201, 350, { a: 'right', w: 600, s: 15 }); T('what the screen shows', 201, 367, { a: 'right', s: 11.5, c: C.muted });
+  T('reward r', 201, 400, { a: 'right', w: 600, s: 15, c: C.loss }); T('+1 for a broken brick', 201, 417, { a: 'right', s: 11.5, c: C.muted });
+  T('action a', 339, 372, { w: 600, s: 15 }); T('left, right, fire…', 339, 389, { s: 11.5, c: C.muted });
+  tok(PL, seg(p, .1, .5), C.loss, 'r'); tok(PL, seg(p, 0, .4), C.online, 's'); tok(PR, seg(p, .52, .9), C.online, 'a', 'l');
+}
+
+/* ---------- scene 2: the Q-network ---------- */
+function sQnet(u) {
+  for (let i = 0; i < 4; i++) { rr(222 + i * 7, 110 + i * 7, 78, 78, 5); ctx.fillStyle = C.stage_2; ctx.fill(); ctx.strokeStyle = C.line; ctx.lineWidth = 1.2; ctx.stroke(); }
+  game(243, 131, 78, 78, u);
+  T('state s', 340, 152, { w: 600, s: 15 }); T('the last 4 frames,', 340, 170, { s: 11.5, c: C.muted }); T('84 × 84 pixels each', 340, 186, { s: 11.5, c: C.muted });
+  line([[270, 216], [270, 236]], C.muted);
+  T('Q-network', 120, 234, { f: F.m, s: 11, w: 500 });
+  const wave = (u * .9) % 1.7;
+  [[300, 'conv 8×8, 32 filters'], [236, 'conv 4×4, 64 filters'], [172, 'conv 3×3, 64 filters'], [130, 'dense, 512 units']].forEach(([w, s], j) => {
+    const g = clamp(1 - Math.abs(wave - j * .28 - .2) / .28);
+    rr(270 - w / 2, 240 + j * 30, w, 24, 6); ctx.fillStyle = C.stage_2; ctx.fill(); ctx.strokeStyle = ca(C.ink, .35 + .65 * g); ctx.lineWidth = 1.5; ctx.stroke();
+    T(s, 270, 256.5 + j * 30, { a: 'center', f: F.m, s: 11, c: C.ink });
+  });
+  line([[270, 358], [270, 378]], C.muted);
+  A(seg(u, 1.4, 2), () => T('Q(s, a): expected future reward per action', 270, 398, { a: 'center', f: F.m, s: 11.5, c: C.muted }));
+  const grow = ease(seg(u, 2, 3.6)), pick = seg(u, 4.6, 5.1), exp = seg(u, 7.2, 7.7);
+  [['left', 1.2], ['right', 2.0], ['fire', 0.7], ['stay', 1.5]].forEach(([nm, q], i) => {
+    const y = 414 + i * 36, w = q / 2.2 * 250 * grow, best = i === 1;
+    T(nm, 150, y + 15, { a: 'right', s: 15, w: 500 });
+    rr(162, y, Math.max(2, w), 20, 4); ctx.fillStyle = best ? ca(C.ink, lerp(.5, .95, pick)) : ca(C.ink, .45); ctx.fill();
+    A(grow, () => T(q.toFixed(1), 170 + w, y + 15, { f: F.m, s: 13 }));
+    if (best) A(pick, () => T('take this one', 432, y + 15, { s: 13, w: 600, a: 'left' }));
+    if (i === 2) A(exp, () => {
+      ctx.setLineDash([4, 4]); rr(158, y - 4, w + 8, 28, 6); ctx.strokeStyle = C.muted; ctx.lineWidth = 1.5; ctx.stroke(); ctx.setLineDash([]);
+      T('sometimes a random one (ε)', 292, y + 15, { s: 12.5, c: C.muted });
+    });
+  });
+  A(seg(u, 8, 8.6), () => T('ε starts at 1.0 and decays to 0.1', 270, 584, { a: 'center', f: F.m, s: 11.5, c: C.muted }));
+}
+
+/* ---------- scenes 3 to 7: the system ---------- */
+const ENV = [24, 118, 160, 112], QN = [340, 118, 180, 112], BUF = [24, 312, 226, 128], TG = [330, 322, 136, 98], LS = [300, 500, 220, 100];
+const P = { s: [[184, 146], [340, 146]], a: [[340, 196], [184, 196]], st: [[104, 230], [104, 312]], bq: [[250, 336], [300, 290], [372, 230]],
+  bt: [[250, 384], [330, 384]], y: [[398, 420], [398, 500]], q: [[484, 230], [484, 500]], g: [[512, 500], [512, 230]], cp: [[430, 230], [430, 322]] };
+const slot = i => [29 + (i % 11) * 20, 324 + Math.floor(i / 11) * 20];
+function picks(seed, count, f) { return Array.from({ length: f }, (_, i) => i).sort((a, b) => rnd(seed * 17 + a * 3.1) - rnd(seed * 17 + b * 3.1)).slice(0, count); }
+function numline(qv, errA) {
+  const X = v => 318 + (v - 2.3) / .8 * 184;
+  ctx.strokeStyle = C.muted; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(318, 562); ctx.lineTo(502, 562); ctx.stroke();
+  [2.4, 2.6, 2.8, 3.0].forEach(v => { ctx.fillStyle = C.muted; ctx.fillRect(X(v) - .5, 562, 1, 5); T(v.toFixed(1), X(v), 580, { a: 'center', f: F.m, s: 10, c: C.muted }); });
+  dot(X(2.98), 562, C.target, 5); T('y 2.98', X(2.98) - 6, 548, { a: 'left', f: F.m, s: 11, c: C.target, w: 500 });
+  dot(X(qv), 562, C.ink, 5); T('Q ' + qv.toFixed(2), X(qv) + 6, 548, { a: 'right', f: F.m, s: 11, w: 500 });
+  A(errA, () => { ctx.strokeStyle = C.loss; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(X(qv), 528); ctx.lineTo(X(2.98), 528); ctx.stroke();
+    T('error ' + (2.98 - qv).toFixed(2), (X(qv) + X(2.98)) / 2, 521, { a: 'center', f: F.m, s: 11, c: C.loss, w: 500 }); });
+}
+function sys(u, m) {
+  const full = m === 'full', dim = (m === 'target' || m === 'loss') ? .45 : 1;
+  const per = m === 'replay' ? 1.1 : full ? 3 : 1.6, n = Math.floor(u / per), p = (u % per) / per;
+  let kS, kA, kSt = 0;
+  if (full) { kS = seg(p, 0, .16); kA = seg(p, .16, .3); kSt = seg(p, .3, .44); }
+  else if (m === 'replay') { kS = seg(p, 0, .3); kA = seg(p, .3, .6); kSt = seg(p, .6, 1); }
+  else { kS = seg(p, 0, .4); kA = seg(p, .5, .9); }
+  const sync = full && n % 3 === 2;
+  // environment and acting loop
+  A(dim, () => {
+    box(ENV, C.ink, 'Environment'); game(32, 126, 144, 96, u);
+    line(P.s, C.online); line(P.a, C.online);
+    T('state s', 262, 138, { a: 'center', f: F.m, s: 11, c: C.online }); T('action a', 262, 214, { a: 'center', f: F.m, s: 11, c: C.online });
+    tok(P.s, kS, C.online); tok(P.a, kA, C.online);
+  });
+  // Q-network
+  box(QN, C.ink, 'Q-network'); net(354, 134, 62, 62, C.ink);
+  [1.2, 2, .7, 1.5].forEach((q, i) => { ctx.fillStyle = ca(C.ink, .5); ctx.fillRect(438, 138 + i * 14, q * 30, 8); });
+  let qText = '', tText = 'frozen';
+  // replay buffer
+  const filled = m === 'replay' ? 20 + n : full ? 34 + n + (p >= .44 ? 1 : 0) : 34;
+  box(BUF, C.online, 'Replay buffer D (last 1M steps)');
+  for (let i = 0; i < 55; i++) { const [x, y] = slot(i); rr(x, y, 16, 16, 3); if (i < filled) { ctx.fillStyle = ca(C.online, .42); ctx.fill(); } else { ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.stroke(); } }
+  A(m === 'replay' || full ? 1 : .45, () => { line(P.st, C.online); T('(s, a, r, s′)', 116, 276, { f: F.m, s: 11, c: C.online }); tok(P.st, kSt, C.online); });
+  const hi = (ids, a) => A(a, () => ids.forEach(i => { const [x, y] = slot(i); rr(x - 1.5, y - 1.5, 19, 19, 4); ctx.strokeStyle = C.offline; ctx.lineWidth = 2.2; ctx.stroke(); }));
+
+  if (m === 'replay') {
+    A(.75, () => { box([330, 340, 176, 88], C.muted, 'training step (next)', { dash: [5, 5], fill: C.stage }); });
+    T('gets a random', 344, 378, { s: 13, c: C.offline }); T('batch of 32 memories', 344, 396, { s: 13, c: C.offline });
+    line(P.bt, C.offline);
+    if (u >= 3.6) {
+      const b = Math.floor((u - 3.6) / 2.3), q = ((u - 3.6) % 2.3) / 2.3, ids = picks(b + 1, 6, 20), fk = seg(q, .3, .8);
+      hi(ids, seg(q, 0, .15) * (1 - seg(q, .75, .9)));
+      if (fk > 0 && fk < 1) ids.forEach(i => { const [x, y] = slot(i); dot(lerp(x + 8, 330, ease(fk)), lerp(y + 8, 384, ease(fk)), C.offline, 4.5); });
+    }
+    A(seg(u, 4.6, 5.2), () => {
+      T('in order: neighbours look the same', 24, 486, { s: 11.5, c: C.muted });
+      T('shuffled: every batch is varied', 24, 548, { s: 11.5, c: C.muted });
+      for (let i = 0; i < 11; i++) {
+        rr(24 + i * 23, 494, 18, 18, 3); ctx.fillStyle = ca(C.online, .3 + i * .012); ctx.fill();
+        rr(24 + i * 23, 556, 18, 18, 3); ctx.fillStyle = ca(C.offline, .12 + .85 * rnd(i * 7 + 2)); ctx.fill();
+      }
+    });
+    return;
+  }
+
+  // target network
+  let tgA = 1;
+  if (m === 'target') {
+    const ck = ease(seg(u, .3, 1.5)); tgA = seg(u, 1.3, 1.7);
+    A(seg(u, .3, .7), () => { line(P.cp, C.target, { dash: [4, 4] }); T('copy every C', 424, 282, { a: 'right', f: F.m, s: 10.5, c: C.target }); });
+    if (u > .3 && u < 1.6) A(.8 * (1 - seg(u, 1.4, 1.6)), () => { rr(lerp(QN[0], TG[0], ck), lerp(QN[1], TG[1], ck), lerp(QN[2], TG[2], ck), lerp(QN[3], TG[3], ck), 10); ctx.strokeStyle = C.target; ctx.lineWidth = 2; ctx.stroke(); });
+  } else {
+    line(P.cp, C.target, { dash: [4, 4] }); T('copy every C', 424, 282, { a: 'right', f: F.m, s: 10.5, c: C.target });
+  }
+  const barsG = m === 'target' ? ease(seg(u, 3.2, 4.2)) : 1;
+  if (m === 'target') { if (u > 6.4) { qText = 'updates: ' + (Math.floor((u - 6.4) / .9) + 1); tText = 'updates: 0'; flash(QN, C.loss, 1 - ((u - 6.4) % .9) / .9); } else if (u > 4.4) tText = 'max = 2.00'; }
+  if (m === 'loss') { if (u > 1.3) { qText = 'Q(s,a) = ' + lerp(2.5, 2.62, ease(seg(u, 6.4, 7.6))).toFixed(2); tText = 'y = 2.98'; } }
+  if (full) tText = 'age ' + ((n % 3) + 1) + ' of C';
+  A(tgA, () => {
+    box(TG, C.target, 'Target network Q̂'); net(342, 336, 40, 50, C.target);
+    [1.2, 2, .7, 1.5].forEach((q, i) => { ctx.fillStyle = ca(C.target, i === 1 && barsG > .9 ? 1 : .45); ctx.fillRect(396, 336 + i * 13, q * 24 * barsG, 7); });
+    T(tText, 342, 410, { f: F.m, s: 11, c: C.target });
+  });
+  if (qText) T(qText, 354, 221, { f: F.m, s: 11.5, w: 500 });
+  // sampled batch paths
+  const smpA = m === 'target' ? seg(u, 1.8, 2.2) : 1;
+  A(smpA, () => { line(P.bt, C.offline); T('s′, r', 290, 376, { a: 'center', f: F.m, s: 11, c: C.offline }); });
+  if (m !== 'target') { line(P.bq, C.offline); T('s, a', 290, 262, { a: 'right', f: F.m, s: 11, c: C.offline }); }
+
+  if (m === 'target') {
+    tok(P.bt, seg(u, 2.2, 3.4), C.offline);
+    hi([17], seg(u, 1.8, 2.2) * (1 - seg(u, 3.4, 3.8)));
+    A(seg(u, 3.6, 4), () => T('y = r + γ · max Q̂(s′, a′)', 24, 494, { f: F.m, s: 14.5 }));
+    A(seg(u, 4.6, 5), () => { T('  = 1 + 0.99 × 2.00', 24, 522, { f: F.m, s: 14.5 }); T('r: the reward. γ = 0.99: later reward counts a bit less.', 24, 596, { s: 10.5, c: C.muted }); });
+    A(seg(u, 5.6, 6), () => T('  = 2.98', 24, 552, { f: F.m, s: 17, w: 500, c: C.target }));
+    return;
+  }
+
+  // loss
+  box(LS, C.loss, 'Loss (y − Q)²');
+  line(P.y, C.target); T('y', 390, 466, { a: 'right', f: F.m, s: 11, c: C.target });
+  line(P.q, C.ink); T('Q(s,a)', 478, 466, { a: 'right', f: F.m, s: 11 });
+  line(P.g, C.loss, { dash: [4, 4] });
+
+  if (m === 'loss') {
+    hi([17], 1 - seg(u, 1.3, 1.7));
+    tok(P.bq, seg(u, .3, 1.3), C.offline); tok(P.bt, seg(u, .3, 1.3), C.offline);
+    tok(P.y, seg(u, 1.6, 2.6), C.target); tok(P.q, seg(u, 1.6, 2.6), C.ink);
+    A(seg(u, 2.6, 3), () => numline(lerp(2.5, 2.62, ease(seg(u, 6.4, 7.6))), seg(u, 3.2, 3.6)));
+    tok(P.g, seg(u, 5.2, 6.2), C.loss);
+    flash(QN, C.loss, seg(u, 6.1, 6.2) * (1 - seg(u, 6.2, 7.2)));
+    A(seg(u, 3, 3.4), () => T('loss = (y − Q(s, a))²', 24, 494, { f: F.m, s: 14.5 }));
+    A(seg(u, 3.8, 4.2), () => T('     = (2.98 − 2.50)²', 24, 522, { f: F.m, s: 14.5 }));
+    A(seg(u, 4.6, 5), () => T('     = 0.23', 24, 552, { f: F.m, s: 17, w: 500, c: C.loss }));
+    A(seg(u, 7, 7.4), () => T('same (s, a) next time: Q = 2.62', 24, 596, { s: 12, c: C.ink }));
+    return;
+  }
+
+  // full loop
+  hi(picks(n + 3, 6, 34), seg(p, .4, .44) * (1 - seg(p, .56, .6)));
+  tok(P.bq, seg(p, .44, .58), C.offline); tok(P.bt, seg(p, .44, .58), C.offline);
+  tok(P.y, seg(p, .58, .72), C.target); tok(P.q, seg(p, .58, .72), C.ink);
+  tok(P.g, seg(p, .72, .86), C.loss);
+  flash(QN, C.loss, seg(p, .84, .86) * (1 - seg(p, .86, 1)));
+  if (sync) { tok(P.cp, seg(p, .86, .98), C.target); flash(TG, C.target, seg(p, .96, .98) * (1 - seg(p, .98, 1))); }
+  numline(2.98 - .48 * Math.pow(.85, n + (p > .86 ? 1 : 0)), 1);
+  const ph = [0, .16, .3, .44, .58, .72, .86, 1.01]; let cur = 0; while (p >= ph[cur + 1]) cur++;
+  const L = [['a ← ε-greedy over Q(s, ·)', C.online], ['play a, observe r and s′', C.online], ['store (s, a, r, s′) in D', C.online], ['sample a random batch from D', C.offline],
+    ['y ← r + γ · max Q̂(s′, a′)', C.target], ['gradient step on (y − Q(s,a))²', C.loss], ['every C steps: Q̂ ← Q  (C = 3 here)', C.target]];
+  T('step t = ' + (n + 1), 24, 480, { f: F.m, s: 12, c: C.muted });
+  L.forEach(([s, col], i) => {
+    const on = i === cur && (i < 6 || sync), y = 500 + i * 18.5;
+    if (on) { ctx.fillStyle = col; ctx.fillRect(24, y - 10, 4, 12); }
+    T(s, 36, y, { f: F.m, s: 12.5, c: on ? col : ca(C.muted, .75), w: on ? 500 : 400 });
+  });
+}
+
+/* ---------- scenes ---------- */
+const SC = [
+  { id: 'paper', name: 'Paper', dur: 6.5, src: 'Front page', h: 'One paper, built piece by piece',
+    b: 'Mnih et al., Nature 2015. One network learned 49 Atari games from raw pixels. We zoom into the paper and rebuild the algorithm one part at a time.' },
+  { id: 'loop', name: 'Loop', dur: 11, src: 'Abstract', h: 'Every RL algorithm starts with this loop',
+    b: 'The agent sees the state and picks an action. The game answers with a reward and the next state. The goal: collect as much reward as possible over time.' },
+  { id: 'qnet', name: 'Q-network', dur: 13, src: 'Figure 1', h: 'The Q-network scores every action',
+    b: 'Input: the last 4 frames. Output: one number per action. Q(s, a) answers: how much total reward do I expect if I take action a now? Mostly take the biggest. Sometimes take a random one to explore.' },
+  { id: 'replay', name: 'Replay', dur: 13.5, src: 'Methods · experience replay', h: 'Replay buffer: save it, then shuffle it',
+    b: 'Every step is saved as (s, a, r, s′). Training uses a random batch of 32 old memories, not the latest step. Shuffling breaks the link between neighbouring frames, and each memory is reused many times.' },
+  { id: 'target', name: 'Target', dur: 13.5, src: 'Methods · target network', h: 'Target network: a frozen copy sets the answer key',
+    b: 'The training target y comes from a network too. If one network both guesses and grades, the target shifts on every update. So grading uses an older copy, refreshed every C = 10,000 steps.' },
+  { id: 'loss', name: 'Loss', dur: 11.5, src: 'Algorithm 1 · loss line', h: 'Learning: pull the guess toward the target',
+    b: 'Loss = (y − Q(s, a))². One gradient step nudges the Q-network so its guess moves toward y. The target network does not change.' },
+  { id: 'full', name: 'Full loop', dur: 20.5, src: 'Algorithm 1', h: 'The full DQN loop', legend: true,
+    b: 'Act, store, sample, grade, update. Repeat for millions of steps.' },
+  { id: 'recap', name: 'Recap', dur: 8, src: 'Front page', h: 'DQN = Q-learning + a neural net + two fixes', legend: true,
+    b: 'The replay buffer fixes correlated data. The target network fixes the moving target. The rest is the plain agent and environment loop.' }
+];
+const SAY = {
+  paper: 'This is the D Q N paper, from Nature, 2015. One network learned 49 Atari games from raw pixels. We zoom into the paper and rebuild the algorithm one part at a time.',
+  loop: 'The agent sees the state and picks an action. The game answers with a reward and the next state. The goal is to collect as much reward as possible over time.',
+  qnet: 'The input is the last four frames. The output is one number per action. Q of s, a answers: how much total reward do I expect if I take this action now? Mostly take the biggest. Sometimes take a random one, to explore.',
+  replay: 'Every step is saved as state, action, reward, next state. Training uses a random batch of 32 old memories, not the latest step. Shuffling breaks the link between neighbouring frames, and each memory is reused many times.',
+  target: 'The training target, y, comes from a network too. If one network both guesses and grades, the target shifts on every update. So grading uses an older copy, refreshed every ten thousand steps.',
+  loss: 'The loss is y minus Q, squared. One gradient step nudges the Q network so its guess moves toward y. The target network does not change.',
+  full: 'Act. Store. Sample. Grade. Update. Then repeat, for millions of steps.',
+  recap: 'The replay buffer fixes correlated data. The target network fixes the moving target. The rest is the plain agent and environment loop.'
+};
+let TOTAL = 0; SC.forEach(s => { s.t0 = TOTAL; TOTAL += s.dur; });
+const MODE = { replay: 'replay', target: 'target', loss: 'loss', full: 'full' };
+function body(i, u) {
+  const id = SC[i].id;
+  if (id === 'paper') { const k = ease(seg(u, 0, 1.6)), s = lerp(.93, 1, k); paper({ x: 270 - 200 * s, y: 356 - 260 * s, s }, null, .9, Math.max(.001, u - 1.6)); }
+  else if (id === 'loop') sLoop(u);
+  else if (id === 'qnet') sQnet(u);
+  else if (id === 'recap') { const k = seg(u, 5.2, 6.2); A(1 - k, () => sys(18.2 + u, 'full')); A(k, () => paper(viewFor(null, 0), null, .9, 9)); }
+  else sys(u, MODE[id]);
+}
+function header(i) {
+  const s = SC[i];
+  T('DQN', 24, 50, { f: F.d, w: 700, s: 28 }); T('Mnih et al. · Nature 2015', 24, 70, { f: F.m, s: 11, c: C.muted });
+  T('in the paper', 474, 42, { a: 'right', f: F.m, s: 10.5, c: C.muted }); T(s.src, 474, 60, { a: 'right', s: 13, w: 500 });
+  rr(484, 22, 36, 47, 2); ctx.fillStyle = ca(C.paper, .92); ctx.fill();
+  ctx.fillStyle = ca(C.paper_ink, .7); ctx.fillRect(487, 26, 22, 3);
+  ctx.fillStyle = C.paper_bar; for (let y = 34; y < 64; y += 4) { ctx.fillRect(487, y, 14, 1.6); ctx.fillRect(504, y, 13, 1.6); }
+  const r = REG[s.id]; if (r) { ctx.fillStyle = C.mark; ctx.fillRect(484 + r[0] * .09, 22 + r[1] * .09, r[2] * .09, Math.max(2.5, r[3] * .09)); }
+}
+function caption(i, a) {
+  const s = SC[i];
+  A(a, () => {
+    let y = wrap(s.h, 28, 672, 484, 30, { f: F.d, w: 600, s: 24 });
+    y = wrap(s.b, 28, y + 4, 484, 24.5, { s: 16.5, c: ca(C.ink, .86) });
+    if (s.legend) {
+      let x = 28; y += 8;
+      [['fresh experience', C.online], ['replayed batch', C.offline], ['frozen target', C.target], ['error', C.loss]].forEach(([l, c]) => {
+        ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x + 5, y - 4, 5, 0, 7); ctx.fill();
+        T(l, x + 15, y, { s: 12.5, c: C.muted }); x += 15 + ctx.measureText(l).width + 16;
+      });
+    }
+  });
+}
+function locate(t) { let i = SC.length - 1; while (i > 0 && t < SC[i].t0) i--; return [i, t - SC[i].t0]; }
+let K = 1;
+function render(t) {
+  ctx.setTransform(K, 0, 0, K, 0, 0); ctx.globalAlpha = 1;
+  ctx.fillStyle = C.stage; ctx.fillRect(0, 0, W, H);
+  const [i, v] = locate(clamp(t, 0, TOTAL - .001)), s = SC[i], reg = REG[s.id];
+  if (reg) {
+    if (i > 1 && v < .4) { const pv = SC[i - 1]; A(1 - seg(v, 0, .4), () => body(i - 1, pv.dur - (REG[pv.id] ? OP : 0))); }
+    A((i === 1 ? 1 : seg(v, 0, .4)) * (1 - seg(v, 1.7, OP)), () => paper(viewFor(reg, ease(seg(v, .35, 1.7))), reg, seg(v, .2, .9)));
+    A(seg(v, 1.7, OP), () => body(i, Math.max(0, v - OP)));
+  } else body(i, v);
+  header(i); caption(i, i === 0 ? 1 : seg(v, 0, .5));
+}
+
+/* ---------- transport ---------- */
+const playB = document.getElementById('play'), seek = document.getElementById('seek'), timeEl = document.getElementById('time'), scenesEl = document.getElementById('scenes');
+seek.max = TOTAL.toFixed(2);
+let t = 0, playing = !matchMedia('(prefers-reduced-motion: reduce)').matches, last = 0, curScene = -1;
+const fmt = x => Math.floor(x / 60) + ':' + String(Math.floor(x % 60)).padStart(2, '0');
+SC.forEach((s, i) => {
+  const b = document.createElement('button'); b.type = 'button'; b.textContent = s.name; b.id = 'scene-' + s.id;
+  b.addEventListener('click', () => { t = s.t0 + .01; if (curScene === i) curScene = -1; sync(); }); scenesEl.appendChild(b);
+  const li = document.createElement('li'), h = document.createElement('b'), sp = document.createElement('span');
+  h.textContent = s.h; sp.textContent = s.b; li.append(h, sp); document.getElementById('script').appendChild(li);
+});
+function sync() {
+  render(t); seek.value = t; timeEl.textContent = fmt(t) + ' / ' + fmt(TOTAL);
+  playB.textContent = playing ? 'Pause' : (t >= TOTAL - .05 ? 'Replay' : 'Play');
+  const i = locate(Math.min(t, TOTAL - .001))[0];
+  if (i !== curScene) { if (sound && playing) speak(i); curScene = i; [...scenesEl.children].forEach((b, j) => b.setAttribute('aria-current', j === i ? 'true' : 'false')); }
+}
+/* sound: browser voice reads each scene, soft ticks mark data moving. A scene waits at its last frame until the voice finishes. */
+const sndB = document.getElementById('snd'), synth = window.speechSynthesis || null;
+let sound = false, ac = null, sp = null, tickK = -1;
+function speak(i) {
+  if (!synth) return;
+  try { synth.cancel(); } catch (e) {}
+  const s = SC[i], u = new SpeechSynthesisUtterance(s.h.replace('DQN', 'D Q N').replace('=', 'is') + '. ' + (SAY[s.id] || s.b));
+  const me = sp = { i, done: false, started: false, at: performance.now() };
+  u.rate = 1.05; u.lang = 'en-US';
+  u.onstart = () => { me.started = true; }; u.onend = u.onerror = () => { me.done = true; };
+  try { synth.speak(u); } catch (e) { me.done = true; }
+}
+function hush() { sp = null; if (synth) try { synth.cancel(); } catch (e) {} }
+function holding(i) { if (!sound || !sp || sp.i !== i || sp.done) return false; const el = performance.now() - sp.at; return el < 40000 && (sp.started || el < 1500); }
+function tick(k) {
+  if (!ac) return;
+  try {
+    const o = ac.createOscillator(), g = ac.createGain(), n = ac.currentTime;
+    o.type = 'sine'; o.frequency.value = [523, 659, 784][k % 3];
+    g.gain.setValueAtTime(.0001, n); g.gain.exponentialRampToValueAtTime(.03, n + .012); g.gain.exponentialRampToValueAtTime(.0001, n + .13);
+    o.connect(g); g.connect(ac.destination); o.start(n); o.stop(n + .15);
+  } catch (e) {}
+}
+function tickKey(i, v) {
+  const id = SC[i].id, u = v - (REG[id] ? OP : 0);
+  if (u < 0) return -1;
+  if (id === 'loop') return Math.floor(u / 1.3);
+  if (id === 'replay') return Math.floor(u / 1.1 * 3);
+  if (id === 'full') return Math.floor(u / 3 * 7);
+  if (id === 'target' || id === 'loss') return Math.floor(u / .8);
+  return -1;
+}
+sndB.addEventListener('click', () => {
+  sound = !sound;
+  if (sound) {
+    try { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); ac.resume(); } catch (e) {}
+    if (playing) speak(locate(Math.min(t, TOTAL - .001))[0]);
+  } else hush();
+  sndB.textContent = sound ? (synth ? 'Sound on' : 'Sound on (ticks only)') : 'Sound off'; sndB.setAttribute('aria-pressed', sound ? 'true' : 'false');
+});
+function toggle() {
+  if (!playing && t >= TOTAL - .05) { t = 0; curScene = -1; }
+  playing = !playing; last = 0; sync();
+  if (sound && synth) try {
+    const i = locate(Math.min(t, TOTAL - .001))[0];
+    if (!playing) synth.pause();
+    else if (sp && sp.i === i && !sp.done) synth.resume();
+    else speak(i);
+  } catch (e) {}
+}
+function frame(ts) {
+  if (playing) {
+    if (last) {
+      let nt = t + Math.min(.1, (ts - last) / 1000);
+      const i = locate(Math.min(t, TOTAL - .001))[0], end = SC[i].t0 + SC[i].dur - .03;
+      if (nt >= end && holding(i)) nt = Math.max(t, Math.min(nt, end));
+      t = nt;
+    }
+    last = ts; if (t >= TOTAL) { t = TOTAL; playing = false; }
+    sync();
+    if (sound) { const [j, v] = locate(Math.min(t, TOTAL - .001)), k = tickKey(j, v); if (k !== tickK && k >= 0) tick(k); tickK = k; }
+  }
+  requestAnimationFrame(frame);
+}
+playB.addEventListener('click', toggle); cv.addEventListener('click', toggle);
+cv.addEventListener('keydown', e => {
+  if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggle(); }
+  else if (e.key === 'ArrowRight') { t = Math.min(TOTAL, t + 2); sync(); }
+  else if (e.key === 'ArrowLeft') { t = Math.max(0, t - 2); sync(); }
+});
+seek.addEventListener('input', () => { t = +seek.value; last = 0; if (sp && !sp.done && locate(Math.min(t, TOTAL - .001))[0] !== sp.i) hush(); sync(); });
+function fit() {
+  const w = cv.clientWidth || 360, d = Math.min(3, window.devicePixelRatio || 1);
+  cv.width = Math.round(w * d); cv.height = Math.round(w * d * 16 / 9); K = cv.width / W; sync();
+}
+new ResizeObserver(fit).observe(cv); fit();
+if (document.fonts && document.fonts.load) {
+  Promise.all([document.fonts.load('700 28px "Source Serif 4"', 'DQN'), document.fonts.load('600 24px "Source Serif 4"', 'DQN'), document.fonts.load('400 16px "IBM Plex Sans"', 'aε′'),
+    document.fonts.load('500 15px "IBM Plex Sans"', 'a'), document.fonts.load('600 15px "IBM Plex Sans"', 'a'),
+    document.fonts.load('400 12px "IBM Plex Mono"', 'aεγθ←′²−·×'), document.fonts.load('500 12px "IBM Plex Mono"', 'aεγθ←′²−·×')]).then(sync, sync);
+}
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
