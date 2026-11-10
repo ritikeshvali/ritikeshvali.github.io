@@ -23,7 +23,7 @@ export default function Writing() {
 
       <div className="links">
         <a href={substackUrl} target="_blank" rel="noopener">Read on Substack</a>
-        <a href="/concepts/">Concept reels</a>
+        <a href="/explainers/">Intuitive explainers</a>
       </div>
     </section>
   );
